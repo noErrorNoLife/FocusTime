@@ -1,0 +1,91 @@
+<suki:SukiWindow xmlns="https://github.com/avaloniaui"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:vm="using:FocusTime.ViewModels"
+                 xmlns:suki="https://github.com/kikipoulet/SukiUI"
+                 x:Class="FocusTime.Views.FloatingBarWindow"
+                 x:DataType="vm:MainWindowViewModel"
+                 Title="FocusTime - 悬浮条"
+                 Width="300" Height="100"
+                 MinWidth="300" MinHeight="100"
+                 MaxWidth="300" MaxHeight="100"
+                 WindowStartupLocation="Manual"
+                 SystemDecorations="None"
+                 ExtendClientAreaToDecorationsHint="True"
+                 Topmost="True"
+                 CanResize="False"
+                 Background="Transparent">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid>
+        <!-- 主卡片 -->
+        <suki:GlassCard x:Name="MainCard"
+                        CornerRadius="28" 
+                        Padding="18,16"
+                        Margin="8"
+                        Opacity="0.96"
+                        Background="Transparent">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- 左侧时间显示 -->
+                <StackPanel Grid.Column="0" 
+                           VerticalAlignment="Center"
+                           Spacing="2">
+                    <TextBlock Text="{Binding TimeDisplay}"
+                               FontSize="16"
+                               FontWeight="Bold"
+                               FontFamily="Consolas, monospace"/>
+                    <TextBlock Text="{Binding SessionTypeText}"
+                               FontSize="10"
+                               Opacity="0.7"/>
+                </StackPanel>
+
+                <!-- 中间进度条 -->
+                <StackPanel Grid.Column="1"
+                           VerticalAlignment="Center"
+                           Margin="15,0">
+                    <ProgressBar Value="{Binding Progress}"
+                                Maximum="100"
+                                Height="6"
+                                CornerRadius="3"/>
+                    <TextBlock Text="{Binding Progress, StringFormat='{}{0:F0}%'}"
+                               FontSize="9"
+                               HorizontalAlignment="Center"
+                               Opacity="0.6"
+                               Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <!-- 右侧控制按钮 -->
+                <StackPanel Grid.Column="2"
+                           Orientation="Horizontal"
+                           VerticalAlignment="Center"
+                           Spacing="8">
+                    <!-- 播放/暂停按钮 -->
+                    <Button Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            Width="24" Height="24"
+                            CornerRadius="12"
+                            Command="{Binding StartPauseCommand}"
+                            ToolTip.Tip="播放/暂停">
+                        <PathIcon Data="{Binding StartPauseButtonIcon}" 
+                                  Width="14" Height="14"/>
+                    </Button>
+                    
+                    <!-- 关闭悬浮条按钮 -->
+                    <Button Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            Width="20" Height="20"
+                            CornerRadius="10"
+                            Command="{Binding CloseFloatingBarCommand}"
+                            ToolTip.Tip="关闭悬浮条">
+                        <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"
+                                  Width="12" Height="12"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </suki:GlassCard>
+    </Grid>
+</suki:SukiWindow>

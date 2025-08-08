@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version)",
+      "Bash(mkdir:*)",
+      "Bash(rm:*)",
+      "Bash(true)",
+      "Bash(dotnet build:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:kikipoulet.github.io)"
+    ],
+    "deny": []
+  }
+}
