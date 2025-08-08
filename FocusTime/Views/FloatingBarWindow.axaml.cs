@@ -10,19 +10,16 @@ public partial class FloatingBarWindow : SukiWindow
 {
     private bool _isDragging = false;
     private Point _lastPosition;
-    private bool _isHidden = false;
+    private bool _isSnapped = false;
+    private bool _isPointerOver = false;
 
     public FloatingBarWindow()
     {
         InitializeComponent();
+        this.Width = 300;
         
         // 设置初始位置
         SetInitialPosition();
-        
-        // 添加拖动支持
-        this.PointerPressed += OnPointerPressed;
-        this.PointerMoved += OnPointerMoved;
-        this.PointerReleased += OnPointerReleased;
         
         // 为主卡片添加拖动支持
         this.Loaded += (s, e) => {
@@ -34,9 +31,16 @@ public partial class FloatingBarWindow : SukiWindow
                 mainCard.PointerReleased += OnCardPointerReleased;
             }
         };
+
+        this.PointerEntered += (s, e) => {
+            _isPointerOver = true;
+            UpdateVisualState(true);
+        };
         
-        // 监听位置变化以实现贴边隐藏
-        this.PositionChanged += OnPositionChanged;
+        this.PointerExited += (s, e) => {
+            _isPointerOver = false;
+            UpdateVisualState(true);
+        };
     }
 
     private void SetInitialPosition()
@@ -55,22 +59,18 @@ public partial class FloatingBarWindow : SukiWindow
         }
     }
 
-    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            _isDragging = true;
-            _lastPosition = e.GetPosition(this);
-            e.Pointer.Capture(this);
-        }
-    }
-    
     private void OnCardPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         // 只在点击的不是按钮时才开始拖动
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && 
             e.Source is not Button)
         {
+            if (_isSnapped)
+            {
+                _isSnapped = false;
+                UpdateVisualState(false); // Make sure the full bar is visible for dragging
+            }
+
             _isDragging = true;
             _lastPosition = e.GetPosition(this);
             e.Pointer.Capture(this);
@@ -100,112 +100,97 @@ public partial class FloatingBarWindow : SukiWindow
         {
             _isDragging = false;
             e.Pointer.Capture(null);
-            CheckEdgeHiding();
+            SnapToEdge();
             e.Handled = true;
         }
     }
 
-    private void OnPointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (_isDragging)
-        {
-            var currentPosition = e.GetPosition(this);
-            var deltaX = currentPosition.X - _lastPosition.X;
-            var deltaY = currentPosition.Y - _lastPosition.Y;
-
-            Position = new PixelPoint(
-                Position.X + (int)deltaX,
-                Position.Y + (int)deltaY
-            );
-        }
-    }
-
-    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (_isDragging)
-        {
-            _isDragging = false;
-            e.Pointer.Capture(null);
-            CheckEdgeHiding();
-        }
-    }
-
-    private void OnPositionChanged(object? sender, PixelPointEventArgs e)
-    {
-        CheckEdgeHiding();
-    }
-
-    private void CheckEdgeHiding()
+    private void SnapToEdge()
     {
         var screen = Screens.Primary;
         if (screen == null) return;
 
         var workingArea = screen.WorkingArea;
-        var threshold = 10; // 贴边隐藏阈值
+        var threshold = 20; // A smaller threshold for snapping detection
 
-        bool shouldHide = false;
+        var currentPos = this.Position;
+        var newPos = currentPos;
+        bool isNowSnapped = false;
 
-        // 检查是否贴近屏幕边缘
-        if (Position.X <= workingArea.X + threshold ||
-            Position.X >= workingArea.X + workingArea.Width - Width - threshold)
+        // Check left edge
+        if (Math.Abs(currentPos.X - workingArea.X) < threshold)
         {
-            shouldHide = true;
+            newPos = newPos.WithX(workingArea.X - (int)this.Width + 40);
+            isNowSnapped = true;
+        }
+        // Check right edge
+        else if (Math.Abs(currentPos.X + this.Width - (workingArea.X + workingArea.Width)) < threshold)
+        {
+            newPos = newPos.WithX(workingArea.X + workingArea.Width - 40);
+            isNowSnapped = true;
         }
 
-        if (shouldHide && !_isHidden)
+        // For top/bottom, we just snap flush without hiding
+        if (Math.Abs(currentPos.Y - workingArea.Y) < threshold)
         {
-            HideToEdge();
+            newPos = newPos.WithY(workingArea.Y);
         }
-        else if (!shouldHide && _isHidden)
+        else if (Math.Abs(currentPos.Y + this.Height - (workingArea.Y + workingArea.Height)) < threshold)
         {
-            ShowFromEdge();
+            newPos = newPos.WithY(workingArea.Y + workingArea.Height - (int)this.Height);
         }
+
+        _isSnapped = isNowSnapped;
+        Position = newPos; // Set position before updating visual state
+        UpdateVisualState(true);
     }
 
-    private void HideToEdge()
+    private void UpdateVisualState(bool animated)
     {
-        _isHidden = true;
-        var screen = Screens.Primary;
-        if (screen == null) return;
+        var progressPanel = this.FindControl<StackPanel>("ProgressAndPercentPanel");
+        var buttonsPanel = this.FindControl<StackPanel>("ControlButtonsPanel");
 
-        var workingArea = screen.WorkingArea;
-        
-        // 根据当前位置决定隐藏到哪边
-        if (Position.X <= workingArea.X + workingArea.Width / 2)
+        if (progressPanel == null || buttonsPanel == null) return;
+
+        bool shouldBeCollapsed = _isSnapped && !_isPointerOver;
+
+        if (shouldBeCollapsed)
         {
-            // 隐藏到左边，只保留少量可见
-            Position = new PixelPoint(workingArea.X - (int)Width + 15, Position.Y);
+            // Collapse
+            progressPanel.IsVisible = false;
+            buttonsPanel.IsVisible = false;
+            this.Width = 100; // Smaller width for collapsed view
+            Opacity = 0.6;
         }
         else
         {
-            // 隐藏到右边，只保留少量可见
-            Position = new PixelPoint(workingArea.X + workingArea.Width - 15, Position.Y);
-        }
+            // Expand
+            progressPanel.IsVisible = true;
+            buttonsPanel.IsVisible = true;
+            this.Width = 300; // Full width
+            Opacity = 0.95;
 
-        // 可以添加动画效果
-        Opacity = 0.6;
+            // If we are snapped, we need to adjust position to be fully visible
+            if (_isSnapped)
+            {
+                var screen = Screens.Primary;
+                if (screen == null) return;
+                var workingArea = screen.WorkingArea;
+
+                if (Position.X < workingArea.X + workingArea.Width / 2)
+                {
+                    // Was snapped to the left
+                    Position = Position.WithX(workingArea.X);
+                }
+                else
+                {
+                    // Was snapped to the right
+                    Position = Position.WithX(workingArea.X + workingArea.Width - (int)this.Width);
+                }
+            }
+        }
     }
 
-    private void ShowFromEdge()
-    {
-        _isHidden = false;
-        var screen = Screens.Primary;
-        if (screen == null) return;
-
-        var workingArea = screen.WorkingArea;
-        
-        // 从边缘完全显示出来
-        if (Position.X < workingArea.X + 50)
-        {
-            Position = new PixelPoint(workingArea.X + 10, Position.Y);
-        }
-        else
-        {
-            Position = new PixelPoint(workingArea.X + workingArea.Width - (int)Width - 10, Position.Y);
-        }
-
-        Opacity = 0.95;
-    }
 
     public void ToggleVisibility()
     {
