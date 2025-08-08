@@ -10,7 +10,6 @@ public partial class FloatingBarWindow : SukiWindow
 {
     private bool _isDragging = false;
     private Point _lastPosition;
-    private bool _isHidden = false;
 
     public FloatingBarWindow()
     {
@@ -18,11 +17,6 @@ public partial class FloatingBarWindow : SukiWindow
         
         // 设置初始位置
         SetInitialPosition();
-        
-        // 添加拖动支持
-        this.PointerPressed += OnPointerPressed;
-        this.PointerMoved += OnPointerMoved;
-        this.PointerReleased += OnPointerReleased;
         
         // 为主卡片添加拖动支持
         this.Loaded += (s, e) => {
@@ -35,8 +29,6 @@ public partial class FloatingBarWindow : SukiWindow
             }
         };
         
-        // 监听位置变化以实现贴边隐藏
-        this.PositionChanged += OnPositionChanged;
     }
 
     private void SetInitialPosition()
@@ -55,16 +47,6 @@ public partial class FloatingBarWindow : SukiWindow
         }
     }
 
-    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            _isDragging = true;
-            _lastPosition = e.GetPosition(this);
-            e.Pointer.Capture(this);
-        }
-    }
-    
     private void OnCardPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         // 只在点击的不是按钮时才开始拖动
@@ -100,112 +82,48 @@ public partial class FloatingBarWindow : SukiWindow
         {
             _isDragging = false;
             e.Pointer.Capture(null);
-            CheckEdgeHiding();
+            SnapToEdge();
             e.Handled = true;
         }
     }
 
-    private void OnPointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (_isDragging)
-        {
-            var currentPosition = e.GetPosition(this);
-            var deltaX = currentPosition.X - _lastPosition.X;
-            var deltaY = currentPosition.Y - _lastPosition.Y;
-
-            Position = new PixelPoint(
-                Position.X + (int)deltaX,
-                Position.Y + (int)deltaY
-            );
-        }
-    }
-
-    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (_isDragging)
-        {
-            _isDragging = false;
-            e.Pointer.Capture(null);
-            CheckEdgeHiding();
-        }
-    }
-
-    private void OnPositionChanged(object? sender, PixelPointEventArgs e)
-    {
-        CheckEdgeHiding();
-    }
-
-    private void CheckEdgeHiding()
+    private void SnapToEdge()
     {
         var screen = Screens.Primary;
         if (screen == null) return;
 
         var workingArea = screen.WorkingArea;
-        var threshold = 10; // 贴边隐藏阈值
+        var threshold = 50; // 贴边吸附的阈值
 
-        bool shouldHide = false;
+        var newX = Position.X;
+        var newY = Position.Y;
 
-        // 检查是否贴近屏幕边缘
-        if (Position.X <= workingArea.X + threshold ||
-            Position.X >= workingArea.X + workingArea.Width - Width - threshold)
+        // 检查左边缘
+        if (Math.Abs(Position.X - workingArea.X) < threshold)
         {
-            shouldHide = true;
+            newX = workingArea.X;
+        }
+        // 检查右边缘
+        else if (Math.Abs(Position.X + Width - (workingArea.X + workingArea.Width)) < threshold)
+        {
+            newX = workingArea.X + workingArea.Width - (int)Width;
         }
 
-        if (shouldHide && !_isHidden)
+        // 检查上边缘
+        if (Math.Abs(Position.Y - workingArea.Y) < threshold)
         {
-            HideToEdge();
+            newY = workingArea.Y;
         }
-        else if (!shouldHide && _isHidden)
+        // 检查下边缘
+        else if (Math.Abs(Position.Y + Height - (workingArea.Y + workingArea.Height)) < threshold)
         {
-            ShowFromEdge();
-        }
-    }
-
-    private void HideToEdge()
-    {
-        _isHidden = true;
-        var screen = Screens.Primary;
-        if (screen == null) return;
-
-        var workingArea = screen.WorkingArea;
-        
-        // 根据当前位置决定隐藏到哪边
-        if (Position.X <= workingArea.X + workingArea.Width / 2)
-        {
-            // 隐藏到左边，只保留少量可见
-            Position = new PixelPoint(workingArea.X - (int)Width + 15, Position.Y);
-        }
-        else
-        {
-            // 隐藏到右边，只保留少量可见
-            Position = new PixelPoint(workingArea.X + workingArea.Width - 15, Position.Y);
+            newY = workingArea.Y + workingArea.Height - (int)Height;
         }
 
-        // 可以添加动画效果
-        Opacity = 0.6;
-    }
-
-    private void ShowFromEdge()
-    {
-        _isHidden = false;
-        var screen = Screens.Primary;
-        if (screen == null) return;
-
-        var workingArea = screen.WorkingArea;
-        
-        // 从边缘完全显示出来
-        if (Position.X < workingArea.X + 50)
-        {
-            Position = new PixelPoint(workingArea.X + 10, Position.Y);
-        }
-        else
-        {
-            Position = new PixelPoint(workingArea.X + workingArea.Width - (int)Width - 10, Position.Y);
-        }
-
+        Position = new PixelPoint(newX, newY);
         Opacity = 0.95;
     }
+
 
     public void ToggleVisibility()
     {
