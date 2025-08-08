@@ -5,14 +5,13 @@
                  x:Class="FocusTime.Views.FloatingBarWindow"
                  x:DataType="vm:MainWindowViewModel"
                  Title="FocusTime - 悬浮条"
-                 Width="300" Height="100"
-                 MinWidth="300" MinHeight="100"
-                 MaxWidth="300" MaxHeight="100"
+                 Height="100"
+                 MinHeight="100"
+                 MaxHeight="100"
                  WindowStartupLocation="Manual"
                  SystemDecorations="None"
                  ExtendClientAreaToDecorationsHint="True"
                  Topmost="True"
-                 CanResize="False"
                  Background="Transparent">
 
     <Design.DataContext>
@@ -22,27 +21,30 @@
     <Grid>
         <!-- 主卡片 -->
         <suki:GlassCard x:Name="MainCard"
-                        CornerRadius="28" 
-                        Padding="18,16"
+                        CornerRadius="14"
+                        Padding="16"
                         Margin="8"
-                        Opacity="0.96"
-                        Background="Transparent">
+                        Opacity="0.9"
+                        Background="#44FFFFFF"
+                        BorderThickness="1"
+                        BorderBrush="#88FFFFFF">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <!-- 左侧时间显示 -->
                 <StackPanel Grid.Column="0" 
                            VerticalAlignment="Center"
                            Spacing="2">
                     <TextBlock Text="{Binding TimeDisplay}"
-                               FontSize="16"
+                               FontSize="20"
                                FontWeight="Bold"
                                FontFamily="Consolas, monospace"/>
                     <TextBlock Text="{Binding SessionTypeText}"
-                               FontSize="10"
-                               Opacity="0.7"/>
+                               FontSize="11"
+                               Opacity="0.8"/>
                 </StackPanel>
 
                 <!-- 中间进度条 -->
-                <StackPanel Grid.Column="1"
+                <StackPanel x:Name="ProgressAndPercentPanel"
+                            Grid.Column="1"
                            VerticalAlignment="Center"
                            Margin="15,0">
                     <ProgressBar Value="{Binding Progress}"
@@ -57,7 +59,8 @@
                 </StackPanel>
 
                 <!-- 右侧控制按钮 -->
-                <StackPanel Grid.Column="2"
+                <StackPanel x:Name="ControlButtonsPanel"
+                            Grid.Column="2"
                            Orientation="Horizontal"
                            VerticalAlignment="Center"
                            Spacing="8">

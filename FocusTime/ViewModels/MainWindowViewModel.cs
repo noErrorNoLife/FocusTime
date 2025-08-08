@@ -13,7 +13,7 @@ namespace FocusTime.ViewModels;
 public partial class MainWindowViewModel : ViewModelBase
 {
     private Timer? _timer;
-    private DateTime _sessionStartTime;
+    private DateTime _sessionEndTime;
     private TimeSpan _remainingTime = TimeSpan.FromMinutes(25);
     private int _completedInCycle = 0;
 
@@ -146,7 +146,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsRunning = true;
         SessionTypeText = CurrentSessionType == SessionType.Focus ? "专注" : "休息";
         StartPauseButtonIcon = PauseIcon;
-        _sessionStartTime = DateTime.Now;
+        _sessionEndTime = DateTime.Now.Add(_remainingTime);
         
         _timer = new Timer(UpdateTimer, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
     }
@@ -169,17 +169,22 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void UpdateTimer(object? state)
     {
-        var elapsed = DateTime.Now - _sessionStartTime;
-        var sessionDuration = TimeSpan.FromMinutes(GetCurrentSessionMinutes());
-        
-        if (elapsed >= sessionDuration)
+        var timeLeft = _sessionEndTime - DateTime.Now;
+
+        if (timeLeft <= TimeSpan.Zero)
         {
+            // Ensure UI shows 00:00 and 100% progress before completing
+            TimeDisplay = "00:00";
+            Progress = 100;
             CompleteCurrentSession();
             return;
         }
 
-        _remainingTime = sessionDuration - elapsed;
+        _remainingTime = timeLeft;
         TimeDisplay = $"{_remainingTime.Minutes:D2}:{_remainingTime.Seconds:D2}";
+
+        var sessionDuration = TimeSpan.FromMinutes(GetCurrentSessionMinutes());
+        var elapsed = sessionDuration - timeLeft;
         Progress = (elapsed.TotalSeconds / sessionDuration.TotalSeconds) * 100;
     }
 
