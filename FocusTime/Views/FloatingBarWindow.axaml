@@ -39,7 +39,8 @@
                 <StackPanel Grid.Column="0" 
                            VerticalAlignment="Center"
                            Spacing="2">
-                    <TextBlock Text="{Binding TimeDisplay}"
+                    <TextBlock x:Name="TimeDisplayTextBlock"
+                               Text="{Binding TimeDisplay}"
                                FontSize="20"
                                FontWeight="Bold"
                                FontFamily="Consolas, monospace"/>

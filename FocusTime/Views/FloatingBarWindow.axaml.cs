@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using SukiUI.Controls;
 using System;
@@ -72,7 +73,7 @@ public partial class FloatingBarWindow : SukiWindow
             }
 
             _isDragging = true;
-            _lastPosition = e.GetPosition(this);
+            _lastPosition = e.GetPosition(null); // Use screen coordinates
             e.Pointer.Capture(this);
             e.Handled = true;
         }
@@ -82,14 +83,10 @@ public partial class FloatingBarWindow : SukiWindow
     {
         if (_isDragging)
         {
-            var currentPosition = e.GetPosition(this);
-            var deltaX = currentPosition.X - _lastPosition.X;
-            var deltaY = currentPosition.Y - _lastPosition.Y;
-
-            Position = new PixelPoint(
-                Position.X + (int)deltaX,
-                Position.Y + (int)deltaY
-            );
+            var currentPosition = e.GetPosition(null);
+            var delta = currentPosition - _lastPosition;
+            _lastPosition = currentPosition;
+            Position = new PixelPoint(Position.X + (int)delta.X, Position.Y + (int)delta.Y);
             e.Handled = true;
         }
     }
@@ -146,16 +143,33 @@ public partial class FloatingBarWindow : SukiWindow
             grid.ColumnDefinitions[1].Width = new GridLength(0);
             grid.ColumnDefinitions[2].Width = new GridLength(0);
 
+            // Calculate the width of the time text to adjust the visible part of the window
+            var timeTextBlock = this.FindControl<TextBlock>("TimeDisplayTextBlock");
+            double textWidth = 45; // Default value
+            if (timeTextBlock != null && !string.IsNullOrEmpty(timeTextBlock.Text))
+            {
+                var formattedText = new FormattedText(
+                    timeTextBlock.Text,
+                    new Typeface(timeTextBlock.FontFamily, timeTextBlock.FontStyle, timeTextBlock.FontWeight),
+                    timeTextBlock.FontSize,
+                    TextAlignment.Left,
+                    TextWrapping.NoWrap,
+                    Size.Infinity
+                );
+                // Total visible width = text width + horizontal padding inside the card
+                textWidth = formattedText.Width + 32; // 16px padding on each side
+            }
+
             // Determine which edge we are snapped to and hide the window
             if (Position.X < workingArea.X + workingArea.Width / 2)
             {
                 // Left edge
-                Position = Position.WithX(workingArea.X - (int)Width + 45);
+                Position = Position.WithX(workingArea.X - (int)Width + (int)textWidth);
             }
             else
             {
                 // Right edge
-                Position = Position.WithX(workingArea.X + workingArea.Width - 45);
+                Position = Position.WithX(workingArea.X + workingArea.Width - (int)textWidth);
             }
             Opacity = 0.7;
         }
