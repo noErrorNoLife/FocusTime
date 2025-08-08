@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 using SukiUI.Controls;
 using System;
 
@@ -16,7 +17,6 @@ public partial class FloatingBarWindow : SukiWindow
     public FloatingBarWindow()
     {
         InitializeComponent();
-        this.Width = 300;
         
         // 设置初始位置
         SetInitialPosition();
@@ -34,12 +34,12 @@ public partial class FloatingBarWindow : SukiWindow
 
         this.PointerEntered += (s, e) => {
             _isPointerOver = true;
-            UpdateVisualState(true);
+            UpdateVisualState();
         };
         
         this.PointerExited += (s, e) => {
             _isPointerOver = false;
-            UpdateVisualState(true);
+            UpdateVisualState();
         };
     }
 
@@ -68,7 +68,7 @@ public partial class FloatingBarWindow : SukiWindow
             if (_isSnapped)
             {
                 _isSnapped = false;
-                UpdateVisualState(false); // Make sure the full bar is visible for dragging
+                UpdateVisualState(); // Make sure the full bar is visible for dragging
             }
 
             _isDragging = true;
@@ -100,7 +100,8 @@ public partial class FloatingBarWindow : SukiWindow
         {
             _isDragging = false;
             e.Pointer.Capture(null);
-            SnapToEdge();
+            // Defer the snap logic to avoid issues with the input event
+            Dispatcher.UIThread.Post(SnapToEdge);
             e.Handled = true;
         }
     }
@@ -111,83 +112,74 @@ public partial class FloatingBarWindow : SukiWindow
         if (screen == null) return;
 
         var workingArea = screen.WorkingArea;
-        var threshold = 20; // A smaller threshold for snapping detection
+        var threshold = 30;
 
-        var currentPos = this.Position;
-        var newPos = currentPos;
-        bool isNowSnapped = false;
-
-        // Check left edge
-        if (Math.Abs(currentPos.X - workingArea.X) < threshold)
+        // Check if we are near a horizontal edge
+        if (Position.X < workingArea.X + threshold ||
+            (Position.X + Width) > (workingArea.X + workingArea.Width - threshold))
         {
-            newPos = newPos.WithX(workingArea.X - (int)this.Width + 40);
-            isNowSnapped = true;
+            _isSnapped = true;
         }
-        // Check right edge
-        else if (Math.Abs(currentPos.X + this.Width - (workingArea.X + workingArea.Width)) < threshold)
+        else
         {
-            newPos = newPos.WithX(workingArea.X + workingArea.Width - 40);
-            isNowSnapped = true;
+            _isSnapped = false;
         }
 
-        // For top/bottom, we just snap flush without hiding
-        if (Math.Abs(currentPos.Y - workingArea.Y) < threshold)
-        {
-            newPos = newPos.WithY(workingArea.Y);
-        }
-        else if (Math.Abs(currentPos.Y + this.Height - (workingArea.Y + workingArea.Height)) < threshold)
-        {
-            newPos = newPos.WithY(workingArea.Y + workingArea.Height - (int)this.Height);
-        }
-
-        _isSnapped = isNowSnapped;
-        Position = newPos; // Set position before updating visual state
-        UpdateVisualState(true);
+        // Always update the visual state after a drag release
+        UpdateVisualState();
     }
 
-    private void UpdateVisualState(bool animated)
+    private void UpdateVisualState()
     {
-        var progressPanel = this.FindControl<StackPanel>("ProgressAndPercentPanel");
-        var buttonsPanel = this.FindControl<StackPanel>("ControlButtonsPanel");
+        var grid = this.FindControl<Grid>("MainGrid");
+        if (grid == null) return;
 
-        if (progressPanel == null || buttonsPanel == null) return;
+        var screen = Screens.Primary;
+        if (screen == null) return;
+        var workingArea = screen.WorkingArea;
 
         bool shouldBeCollapsed = _isSnapped && !_isPointerOver;
 
         if (shouldBeCollapsed)
         {
-            // Collapse
-            progressPanel.IsVisible = false;
-            buttonsPanel.IsVisible = false;
-            this.Width = 100; // Smaller width for collapsed view
-            Opacity = 0.6;
+            // --- COLLAPSED STATE ---
+            grid.ColumnDefinitions[1].Width = new GridLength(0);
+            grid.ColumnDefinitions[2].Width = new GridLength(0);
+
+            // Determine which edge we are snapped to and hide the window
+            if (Position.X < workingArea.X + workingArea.Width / 2)
+            {
+                // Left edge
+                Position = Position.WithX(workingArea.X - (int)Width + 45);
+            }
+            else
+            {
+                // Right edge
+                Position = Position.WithX(workingArea.X + workingArea.Width - 45);
+            }
+            Opacity = 0.7;
         }
         else
         {
-            // Expand
-            progressPanel.IsVisible = true;
-            buttonsPanel.IsVisible = true;
-            this.Width = 300; // Full width
-            Opacity = 0.95;
+            // --- EXPANDED STATE ---
+            grid.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
+            grid.ColumnDefinitions[2].Width = new GridLength(0, GridUnitType.Auto);
 
-            // If we are snapped, we need to adjust position to be fully visible
+            // If we are snapped, ensure we are fully visible
             if (_isSnapped)
             {
-                var screen = Screens.Primary;
-                if (screen == null) return;
-                var workingArea = screen.WorkingArea;
-
                 if (Position.X < workingArea.X + workingArea.Width / 2)
                 {
-                    // Was snapped to the left
+                    // Was snapped to the left, so show it fully on the left
                     Position = Position.WithX(workingArea.X);
                 }
                 else
                 {
-                    // Was snapped to the right
-                    Position = Position.WithX(workingArea.X + workingArea.Width - (int)this.Width);
+                    // Was snapped to the right, so show it fully on the right
+                    Position = Position.WithX(workingArea.X + workingArea.Width - (int)Width);
                 }
             }
+            Opacity = 0.95;
         }
     }
 
